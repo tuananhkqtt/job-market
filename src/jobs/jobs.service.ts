@@ -1,27 +1,26 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { CreateCompanyDto } from './dto/create-company.dto';
-import { UpdateCompanyDto } from './dto/update-company.dto';
-import { InjectModel } from '@nestjs/mongoose';
-import { Company, CompanyDocument } from './schemas/company.schemas';
-import { SoftDeleteModel } from 'soft-delete-plugin-mongoose';
+import { CreateJobDto } from './dto/create-job.dto';
+import { UpdateJobDto } from './dto/update-job.dto';
 import { IUser } from 'src/users/users.interface';
-import mongoose from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { Job, JobDocument } from './schemas/job.schema';
+import { SoftDeleteModel } from 'soft-delete-plugin-mongoose';
 import aqp from 'api-query-params';
+import mongoose from 'mongoose';
 
 @Injectable()
-export class CompaniesService {
+export class JobsService {
 
-  constructor(@InjectModel(Company.name) private companyModel: SoftDeleteModel<CompanyDocument>) { }
+  constructor(@InjectModel(Job.name) private jobModel: SoftDeleteModel<JobDocument>) { }
 
-  async create(createCompanyDto: CreateCompanyDto, user: IUser) {
-    const company = await this.companyModel.create({
-      ...createCompanyDto,
+  create(createJobDto: CreateJobDto, user: IUser) {
+    return this.jobModel.create({
+      ...createJobDto,
       createdBy: {
         _id: user._id,
         email: user.email
       }
     });
-    return company;
   }
 
   async findAll(currentPage: number, limit: number, qs: string) {
@@ -33,10 +32,10 @@ export class CompaniesService {
     let offset = (+currentPage - 1) * (+limit);
     let defaultLimit = +limit ? +limit : 10;
 
-    const totalItems = (await this.companyModel.find(filter)).length;
+    const totalItems = (await this.jobModel.find(filter)).length;
     const totalPages = Math.ceil(totalItems / defaultLimit);
 
-    const result = await this.companyModel.find(filter)
+    const result = await this.jobModel.find(filter)
       .skip(offset)
       .limit(defaultLimit)
       .sort(sort as any)
@@ -56,17 +55,19 @@ export class CompaniesService {
 
   findOne(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id))
-      throw new BadRequestException(`not found company with id = ${id}`)
-    return this.companyModel.findById(id);
+      throw new BadRequestException(`not found job with id = ${id}`)
+    return this.jobModel.findOne({
+      _id: id
+    })
   }
 
-  async update(id: string, updateCompanyDto: UpdateCompanyDto, user: IUser) {
+  update(id: string, updateJobDto: UpdateJobDto, user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id))
-      throw new BadRequestException(`not found company with id = ${id}`)
-    return this.companyModel.updateOne(
+      throw new BadRequestException(`not found job with id = ${id}`)
+    return this.jobModel.updateOne(
       { _id: id },
       {
-        ...updateCompanyDto,
+        ...updateJobDto,
         updatedBy: {
           _id: user._id,
           email: user.email
@@ -77,8 +78,8 @@ export class CompaniesService {
 
   async remove(id: string, user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id))
-      throw new BadRequestException(`not found company with id = ${id}`)
-    await this.companyModel.updateOne(
+      throw new BadRequestException(`not found job with id = ${id}`)
+    await this.jobModel.updateOne(
       { _id: id },
       {
         deletedBy: {
@@ -87,7 +88,7 @@ export class CompaniesService {
         }
       }
     );
-    return this.companyModel.softDelete({
+    return this.jobModel.softDelete({
       _id: id
     });
   }
