@@ -8,11 +8,16 @@ import { genSaltSync, hashSync, compareSync } from 'bcryptjs';
 import { SoftDeleteModel } from 'soft-delete-plugin-mongoose';
 import { IUser } from './users.interface';
 import aqp from 'api-query-params';
+import { Role, RoleDocument } from 'src/roles/schemas/role.schema';
+import { USER_ROLE } from 'src/databases/sample';
 
 @Injectable()
 export class UsersService {
 
-  constructor(@InjectModel(User.name) private userModel: SoftDeleteModel<UserDocument>) { }
+  constructor(
+    @InjectModel(User.name) private userModel: SoftDeleteModel<UserDocument>,
+    @InjectModel(Role.name) private roleModel: SoftDeleteModel<RoleDocument>
+  ) { }
 
   getHashPassword = (password: string) => {
     const salt = genSaltSync(10)
@@ -24,11 +29,12 @@ export class UsersService {
     const isExist = await this.userModel.findOne({ email: registerUserDto.email })
     if (isExist)
       throw new BadRequestException(`Email: ${registerUserDto.email} da ton tai tren he thong. Vui long su dung email khac`)
+    const userRole = await this.roleModel.findOne({ name: USER_ROLE })
     const hashPassword = this.getHashPassword(registerUserDto.password)
     return this.userModel.create({
       ...registerUserDto,
       password: hashPassword,
-      role: 'USER'
+      role: userRole?._id
     });
   }
 
@@ -83,15 +89,18 @@ export class UsersService {
       throw new BadRequestException(`not found user with id = ${id}`)
     return this.userModel.findOne({
       _id: id
-    }).select('-password');
+    }).select('-password')
+      .populate({ path: 'role', select: { name: 1 } });
   }
 
   findOneByUsername(username: string) {
     return this.userModel.findOne({ email: username })
+      .populate({ path: 'role', select: { name: 1 } })
   }
 
   findOneByToken(refreshToken: string) {
     return this.userModel.findOne({ refreshToken })
+      .populate({ path: 'role', select: { name: 1 } })
   }
 
   isValidPassword(password: string, hash: string) {
@@ -114,6 +123,11 @@ export class UsersService {
   async remove(id: string, user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id))
       throw new BadRequestException(`not found user with id = ${id}`)
+
+    const foundUser = await this.userModel.findById(id)
+    if (foundUser?.email === 'admin@gmail.com')
+      throw new BadRequestException(`Khong the xoa tai khoan admin@gmail.com!!`)
+
     await this.userModel.updateOne(
       { _id: id },
       {

@@ -41,7 +41,17 @@ export class ResumesService {
       throw new BadRequestException(`not found user with id = ${user._id}`)
     return this.resumeModel.find({
       userId: user._id
-    })
+    }).sort("-createdAt")
+      .populate([
+        {
+          path: "companyId",
+          select: { name: 1 }
+        },
+        {
+          path: "jobId",
+          select: { name: 1 }
+        }
+      ])
   }
 
   async findAll(currentPage: number, limit: number, qs: string) {
